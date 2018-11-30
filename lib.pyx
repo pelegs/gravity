@@ -66,11 +66,12 @@ cdef double dist2(np.ndarray[double, ndim=1] v1,
 
 
 class body:
-    def __init__(self, pos, vel, mass, color):
+    def __init__(self, pos, vel, mass=1.0, color='FFFFFF', R=1.0):
         self.pos = pos
         self.vel = vel
         self.mass = mass
         self.mass_ = 1/mass
+        self.radius = R
 
         self.neighbors = []
 
@@ -120,5 +121,17 @@ class body:
         self.acc2 = vec_scale(self.Force, self.mass_)
         self.vel = vec_add(self.vel, vec_scale(vec_add(self.acc, self.acc2), 0.5*dt**2))
 
+    def temp_move(self, dt, G=1):
+        self.reset_forces()
+        self.set_gravity(G)
+        self.acc = vec_scale(self.Force, self.mass_)
+        dv = np.zeros(3).astype(np.float64)
+        dv = vec_scale(self.acc, dt)
+        self.vel = vec_add(self.vel, dv)
+        dx = np.zeros(3).astype(np.float64)
+        dx = vec_scale(self.vel, dt)
+        self.pos = vec_add(self.pos, dx)
+
     def draw(self, canvas, ref=np.zeros(3), r=1):
-        pygame.draw.circle(canvas, self.pos + ref, r, self.color)
+        pos = (self.pos+ref)[0:2]
+        pygame.draw.circle(canvas, self.color, pos.astype(int)[:2], int(self.radius))
