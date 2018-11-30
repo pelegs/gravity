@@ -2,6 +2,7 @@ import numpy as np
 cimport numpy as np
 from libc.math cimport sqrt, exp, log, pi
 from tqdm import tqdm
+import pygame
 
 
 cdef double norm(np.ndarray[double, ndim=1] vec):
@@ -50,9 +51,10 @@ cdef vec_sum(np.ndarray[double, ndim=1] v1,
 
 
 cdef np.ndarray[double, ndim=1] gravity_force(np.ndarray[double, ndim=1] pos1,
-                                              np.ndarray[double, ndim=2] pos2,
+                                              np.ndarray[double, ndim=1] pos2,
                                               double mass1, double mass2,
                                               double G):
+    # Force directed from 1 to 2
     cdef np.ndarray[double, ndim=1] norm_dist_vec = normalize(vec_sub(pos2, pos1))
     cdef double F_magnitude = G * mass1 * mass2 / dist2(pos1, pos2)
     return vec_scale(norm_dist_vec, F_magnitude)
@@ -70,11 +72,29 @@ class body:
         self.mass = mass
         self.mass_ = 1/mass
 
+        self.neighbors = []
+
         self.Force = np.zeros(3).astype(np.float64)
         self.acc = np.zeros(3).astype(np.float64)
         self.acc2 = np.zeros(3).astype(np.float64)
 
-        self.color = color
+        R = int(color[0:2], 16)
+        G = int(color[2:4], 16)
+        B = int(color[4:6], 16)
+        self.color = [R, G, B]
+
+    def add_neighbors(self, group):
+        my_neighbors = group.copy()
+        my_neighbors.remove(self)
+        for neighbor in my_neighbors:
+            self.neighbors.append(neighbor)
+
+    def remove_neighbor(self, neighbor):
+        if neighbor in self.neighbors:
+            self.neighbors.remove(neighbor)
+
+    def reset_neighbors(self):
+        self.neighbors = []
 
     def add_force(self, F):
         self.Force = vec_add(self.Force, F)
@@ -82,10 +102,23 @@ class body:
     def reset_forces(self):
         self.Force = np.zeros(3).astype(np.float64)
 
+    def set_gravity(self, G=1):
+        for b2 in self.neighbors:
+            F = np.zeros(3).astype(np.float64)
+            F = gravity_force(self.pos, b2.pos, self.mass, b2.mass, G)
+            self.add_force(F)
+            b2.add_force(-F)
+            self.remove_neighbor(b2)
+
     def move1(self, dt):
         self.acc = vec_scale(self.Force, self.mass_)
         self.pos = vec_sum(self.pos, vec_scale(self.vel, dt), vec_scale(self.acc, 0.5*dt**2))
         self.reset_forces()
 
-    def move2(self, dt):
+    def move2(self, dt, G=1):
+        self.set_gravity(G)
+        self.acc2 = vec_scale(self.Force, self.mass_)
         self.vel = vec_add(self.vel, vec_scale(vec_add(self.acc, self.acc2), 0.5*dt**2))
+
+    def draw(self, canvas, ref=np.zeros(3), r=1):
+        pygame.draw.circle(canvas, self.pos + ref, r, self.color)
