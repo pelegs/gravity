@@ -5,8 +5,13 @@ from tqdm import tqdm
 import pygame
 
 
+cdef double dot(np.ndarray[double, ndim=1] v1,
+                np.ndarray[double, ndim=1] v2):
+    return v1[0]*v2[0] + v1[1]*v2[1] + v1[2]*v2[2]
+
+
 cdef double norm(np.ndarray[double, ndim=1] vec):
-    return sqrt(vec[0]**2 + vec[1]**2 + vec[2]**2)
+    return sqrt(dot(vec, vec))
 
 
 cdef np.ndarray[double, ndim=1] normalize(np.ndarray[double, ndim=1] vec):
@@ -63,6 +68,11 @@ cdef np.ndarray[double, ndim=1] gravity_force(np.ndarray[double, ndim=1] pos1,
 cdef double dist2(np.ndarray[double, ndim=1] v1,
                   np.ndarray[double, ndim=1] v2):
     return (v1[0]-v2[0])**2 + (v1[1]-v2[1])**2 + (v1[2]-v2[2])**2
+
+
+cdef double kinetic_energy(np.ndarray[double, ndim=1] v,
+                           double m):
+    return 0.5 * m * dot(v, v)
 
 
 class body:
@@ -131,6 +141,9 @@ class body:
         dx = np.zeros(3).astype(np.float64)
         dx = vec_scale(self.vel, dt)
         self.pos = vec_add(self.pos, dx)
+
+    def Ek(self):
+        return kinetic_energy(self.vel, self.mass)
 
     def draw(self, canvas, ref=np.zeros(3), r=1):
         pos = (self.pos+ref)[0:2]
